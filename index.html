@@ -1134,6 +1134,15 @@ body.qp-on{overflow:hidden}
 <div class="page on" id="p-sum">
   <button class="m-only" onclick="syncMes(false)" style="width:100%;padding:13px;margin:0 0 10px;border:0;border-radius:10px;background:#1F3A5F;color:#fff;font-size:15px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.15)">🔃 새로고침</button>
   <div class="pt"><h2>재고 현황</h2><span class="sub">품목별 월간 입출고 집계 · 현재고 · 안전재고</span><div class="pa"><button class="btn" onclick="render()">조회</button><button class="btn" onclick="window.print()">인쇄</button><button class="btn" onclick="exportXls()">엑셀</button></div></div>
+  <div class="sum" style="grid-template-columns:repeat(7,1fr);margin:0 auto 12px">
+    <div class="pc-only"><span>관리품목</span><b id="q1">166</b><em>품목</em></div>
+    <div class="g pc-only"><span>당월 입고</span><b id="q2">40,662,072</b><em>EA</em></div>
+    <div class="d pc-only"><span>당월 납품(출하)</span><b id="q3">1,166,900</b><em>EA</em></div>
+    <div class="d pc-only"><span>오늘 출하</span><b id="q7">0</b><em>EA</em></div>
+    <div class="pc-only"><span>현재고</span><b id="q4">21,727,858</b><em>EA</em></div>
+    <div class="d"><span>안전재고 미달</span><b id="q5">37</b><em>품목</em></div>
+    <div class="w pc-only"><span>장기 미불출</span><b id="q6">5</b><em>품목</em></div>
+  </div>
   <div class="fbar">
     <label>품번</label>
     <input id="fq" placeholder="품번 / 품명 검색" class="kbi" inputmode="none" autocomplete="off" style="width:150px">
@@ -1151,6 +1160,8 @@ body.qp-on{overflow:hidden}
       <option value="pn|1">품번순</option><option value="nm|1">품명순</option><option value="wh|1">구분순</option>
       <option value="cur|-1">현재고 많은순</option><option value="cur|1">현재고 적은순</option>
       <option value="gap|1">과부족 부족순</option></select>
+    <label class="pc-only">조정일자</label>
+    <input type="date" id="fxDate" class="pc-only fxd" title="재고를 직접 수정할 때 조정전표 일자 — 실사한 날짜를 넣으면 그날 재고 기준으로 차이를 계산합니다" onchange="fxSet(this.value)" style="width:132px">
     <label class="pc-only">필터</label>
     <select id="fSel" class="fsel pc-only">
       <option value="all">전체</option><option value="short">안전재고 미달</option><option value="zero">재고 0</option>
@@ -2752,15 +2763,6 @@ body.qp-on{overflow:hidden}
      <td style="font-weight:800">2,335,471</td><td colspan="3"></td><td>679,900</td>
      <td colspan="4"></td></tr></tfoot></table></div></div>
     <div class="hint noprint">· 현재고 = 전월이월 + 당월입고 − 당월출고 · 과부족 = 현재고 − 안전재고 · 재고일수 = 현재고 ÷ 일평균출고 · 회전율 = 당월출고 ÷ 평균재고<br>· 품번을 클릭하면 해당 품목의 입출고 이력로 이동합니다.</div>
-  </div>
-  <div class="sum" style="grid-template-columns:repeat(7,1fr);margin:12px auto 0">
-    <div class="pc-only"><span>관리품목</span><b id="q1">166</b><em>품목</em></div>
-    <div class="g pc-only"><span>당월 입고</span><b id="q2">40,662,072</b><em>EA</em></div>
-    <div class="d pc-only"><span>당월 납품(출하)</span><b id="q3">1,166,900</b><em>EA</em></div>
-    <div class="d pc-only"><span>오늘 출하</span><b id="q7">0</b><em>EA</em></div>
-    <div class="pc-only"><span>현재고</span><b id="q4">21,727,858</b><em>EA</em></div>
-    <div class="d"><span>안전재고 미달</span><b id="q5">37</b><em>품목</em></div>
-    <div class="w pc-only"><span>장기 미불출</span><b id="q6">5</b><em>품목</em></div>
   </div>
 </div>
 
@@ -6224,6 +6226,7 @@ body.qp-on{overflow:hidden}
       <label style="color:#946200">현재고 수정 (실사 수량 입력 → 차이만큼 조정전표 발행)</label>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="number" id="yCur" style="flex:1" placeholder="실사 수량(EA)">
+        <input type="date" id="yCurD" class="fxd" title="조정일자 (실사일)" onchange="fxSet(this.value)" style="width:132px">
         <span id="yCurNow" style="font-size:11.5px;color:#7d8b99;white-space:nowrap"></span>
       </div>
     </div>
@@ -11250,8 +11253,8 @@ function openItem(i){
     if(n){ cb.style.display='none'; $('yCur').value=''; }
     else{
       cb.style.display='';
-      const cv=Math.round(calc(it).cur||0);
-      $('yCur').value=cv;
+      const cv=stockAt(it,fxDate());
+      $('yCur').value=cv; $('yCur').dataset.base=cv; fxSync();
       $('yCurNow').textContent='전산 '+nf(cv)+' EA';
     }
   }
@@ -11343,8 +11346,8 @@ function saveItem(){
   /* 현재고를 고쳤으면 차이만큼 조정전표를 만든다 */
   const cv=$('yCur');
   if(i>=0 && cv && String(cv.value).trim()!==''){
-    const want=Math.round(+cv.value||0), cur=Math.round(calc(tgt).cur||0);
-    if(want!==cur){ closeAll(); fixStock(tgt, want); pushItems(true); return; }
+    const want=Math.round(+cv.value||0), cur=stockAt(tgt,fxDate());
+    if(want!==cur){ closeAll(); fixStock(tgt, want, fxDate()); pushItems(true); return; }
   }
   render();closeAll();pushItems(true);toast('저장되었습니다');
 }
@@ -13189,7 +13192,7 @@ function openFix(pn){
   const box=document.getElementById(fxId(pn)); if(!box)return;
   if(box.innerHTML&&box.dataset.m!=='sf'){ box.innerHTML=''; box.dataset.m=''; sumEdit=false; return; }   /* 다시 누르면 닫기 */
   sumEdit=true; box.dataset.m='cur';                        /* 펼친 동안 재렌더 차단 */
-  const cur=Math.round(calc(it).cur||0), bx=+it.bx||0;
+  let cur=stockAt(it,fxDate()); const bx=+it.bx||0;
   const cb=bx?Math.floor(cur/bx):0, cl=bx?((cur%bx)+bx)%bx:cur;
   box.innerHTML=
     '<div class="fx-t">현재고 수정 · 실사 수량 입력</div><div class="fx-in">'
@@ -13198,9 +13201,11 @@ function openFix(pn){
       :'<label><em>수량(EA)</em><input type="text" class="kbi" inputmode="none" readonly id="'+fxId(pn)+'_e" data-k="e" value="'+cur+'"></label>')
     +'</div>'
     +'<div class="fx-r" data-r>실사 <b>'+nf(cur)+'</b> EA · 차이 <b class="z">0</b></div>'
+    +'<div class="fx-r"><label>조정일자 <input type="date" class="fxd" data-d value="'+fxDate()+'" max="'+today()+'"></label></div>'
     +'<div class="fx-b"><button class="ok" data-go>이 재고로 맞춤</button>'
     +'<button class="cx" data-cx>취소</button></div>';
-  const ins=box.querySelectorAll('input');
+  const ins=box.querySelectorAll('input.kbi');
+  box.querySelector('[data-d]').addEventListener('change',e=>{ fxSet(e.target.value); cur=stockAt(it,fxDate()); calcNow(); });
   const calcNow=()=>{
     let v=0;
     ins.forEach(i=>{ v += (i.dataset.k==='b') ? (+i.value||0)*bx : (+i.value||0); });
@@ -13211,7 +13216,7 @@ function openFix(pn){
   };
   ins.forEach(i=>{ i.addEventListener('input',calcNow); });
   box.querySelector('[data-cx]').onclick=e=>{ e.stopPropagation(); box.innerHTML=''; box.dataset.m=''; sumEdit=false; };
-  box.querySelector('[data-go]').onclick=e=>{ e.stopPropagation(); const v=calcNow(); box.innerHTML=''; box.dataset.m=''; sumEdit=false; fixStock(it, v); };
+  box.querySelector('[data-go]').onclick=e=>{ e.stopPropagation(); const v=calcNow(); box.innerHTML=''; box.dataset.m=''; sumEdit=false; fixStock(it, v, fxDate()); };
   calcNow();
   /* 읽기전용 칸이라 포커스만으로는 열리지 않는다 — 앱 숫자판을 바로 띄운다 */
   try{ if(typeof kbOpen==='function'){ ins[0].dataset.fresh='1'; kbOpen(ins[0].id); } }catch(e){}
@@ -13231,6 +13236,7 @@ function qpBuild(){
     '<div class="qp">'
     +'<div class="qp-hd"><div><b id="qpPn"></b><span id="qpTitle"></span></div><button type="button" class="qp-x" onclick="qpClose()">✕</button></div>'
     +'<div class="qp-now" id="qpNow"></div>'
+    +'<div class="qp-now" id="qpDw">조정일자 <input type="date" id="qpD" class="fxd" onchange="fxSet(this.value)" style="font-size:13px;padding:3px 6px;border:1px solid #C9D3DE;border-radius:5px"></div>'
     +'<div class="qp-f" id="qpF">'
     +'<div class="qp-fld" data-f="b" onclick="qpSel(\'b\')"><em>박스</em><b id="qpB">0</b></div>'
     +'<div class="qp-fld" data-f="e" onclick="qpSel(\'e\')"><em>낱개 (EA)</em><b id="qpE">0</b></div>'
@@ -13249,18 +13255,25 @@ function openQty(pn,mode){
   const it=S.items.find(x=>x.pn===pn); if(!it)return;
   qpBuild();
   const bx=+it.bx||0;
-  const base=mode==='cur'?Math.round(calc(it).cur||0):Math.round(+it.sf||0);
+  const base=mode==='cur'?stockAt(it,fxDate()):Math.round(+it.sf||0);
   const cb=bx?Math.floor(base/bx):0, cl=bx?((base%bx)+bx)%bx:base;
   QP={it,mode,bx,base,f:bx?'b':'e',b:String(cb),e:String(cl),fresh:true};
   $('qpPn').textContent=it.pn;
   $('qpTitle').textContent=mode==='cur'?'현재고 수정 (실사 수량)':'안전재고 수정';
-  $('qpNow').innerHTML=(mode==='cur'?'전산 현재고':'현재 안전재고')+' <b>'+nf(base)+'</b> EA'+(bx?' · '+cb+'박스'+(cl?'+'+nf(cl):'')+' · '+nf(bx)+' ea/박스':'');
+  qpNowPaint();
+  $('qpDw').style.display=mode==='cur'?'':'none'; fxSync();
   $('qpF').querySelector('[data-f="b"]').style.display=bx?'':'none';
   $('qpOk').textContent=mode==='cur'?'이 재고로 맞춤':'안전재고 저장';
   $('qpOk').className='ok '+mode;
   sumEdit=true;
   qpPaint();
   $('qpWrap').classList.add('on'); document.body.classList.add('qp-on');
+}
+function qpNowPaint(){
+  if(!QP)return;
+  const {mode,bx,base}=QP, cb=bx?Math.floor(base/bx):0, cl=bx?((base%bx)+bx)%bx:base;
+  const d=fxDate(), past=mode==='cur'&&d!==today();
+  $('qpNow').innerHTML=(mode==='cur'?'전산 '+(past?d+' 재고':'현재고'):'현재 안전재고')+' <b>'+nf(base)+'</b> EA'+(bx?' · '+cb+'박스'+(cl?'+'+nf(cl):'')+' · '+nf(bx)+' ea/박스':'');
 }
 function qpSel(f){ if(!QP)return; if(f==='b'&&!QP.bx)return; QP.f=f; QP.fresh=true; qpPaint(); }
 function qpVal(){ return Math.max(0, Math.round((+QP.b||0)*QP.bx + (+QP.e||0))); }
@@ -13288,7 +13301,7 @@ function qpApply(){
   if(!QP)return;
   const {it,mode,base}=QP, v=qpVal();
   qpClose();
-  if(mode==='cur'){ fixStock(it, v); return; }
+  if(mode==='cur'){ fixStock(it, v, fxDate()); return; }
   if(v===base){ toast('안전재고가 이미 '+nf(v)+' EA 입니다'); return; }
   it.sf=v; touchItem(it); save(); toast(it.pn+' 안전재고 '+nf(base)+' → '+nf(v)+' EA'); rSum();
 }
@@ -13358,33 +13371,77 @@ $('tCfg').addEventListener('change',e=>{
 /* ═══════ 현재고 직접 수정 ═══════
    실사로 확인한 수량을 넣으면 차이만큼 재고조정 전표를 만든다.
    (전표를 남기지 않고 숫자만 바꾸면 수불이 맞지 않으므로 반드시 전표로 처리한다) */
-async function fixStock(it, val){
+/* ═══════ 조정일자 ═══════
+   재고 직접수정 전표의 일자. 기본은 오늘, 실사한 날짜로 바꿀 수 있다(미래일 불가).
+   차이는 '그 날짜 기준 전산재고' 와 실사 수량으로 계산한다. */
+let FXD='';
+function fxDate(){ const t=today(); return (/^\d{4}-\d{2}-\d{2}$/.test(FXD||'')&&FXD<=t)?FXD:t; }
+function fxSet(v){
+  const t=today();
+  if(v&&v>t){ toast('조정일자는 오늘('+t+') 이후로 지정할 수 없습니다'); v=t; }
+  FXD=v||''; fxSync();
+  try{ if(QP&&QP.mode==='cur'){ QP.base=stockAt(QP.it,fxDate()); qpNowPaint(); qpPaint(); } }catch(e){}
+  /* 품목 창이 열려 있으면 전산재고를 그 날짜 기준으로 다시 보여 준다 (손대지 않은 값이면 같이 바꾼다) */
+  try{
+    const i=+$('yIdx').value, it=S.items[i], yc=$('yCur');
+    if(i>=0&&it&&yc){ const c=stockAt(it,fxDate());
+      if(String(yc.value)===String(yc.dataset.base)) yc.value=c;
+      yc.dataset.base=c; $('yCurNow').textContent='전산 '+nf(c)+' EA'; }
+  }catch(e){}
+}
+function fxSync(){ const d=fxDate(), t=today();
+  document.querySelectorAll('input.fxd').forEach(i=>{ i.max=t; if(i.value!==d) i.value=d; }); }
+/* d 일자(포함) 기준 전산재고 — calc() 를 그 날짜 마감으로 잠시 돌린다 */
+function stockAt(it,d){
+  const bk=ym, bc=CUT;
+  ym=String(d).slice(0,7); CUT=d;
+  try{ return Math.round(calc(it).cur||0); } finally { ym=bk; CUT=bc; }
+}
+async function fixStock(it, val, dd){
   const v=String(val==null?'':val).trim();
   if(v===''){ rCfg(); return; }
-  const want=Math.round(+v||0);
-  const cur=Math.round(calc(it).cur||0);
-  const df=want-cur;
-  if(!df){ toast('재고가 이미 '+nf(want)+' EA 입니다'); rCfg(); return; }
-  const b0=+it.bx||0;
-  const bx=(n)=>b0?(Math.floor(n/b0)+'박스'+(((n%b0)+b0)%b0?'+'+nf(((n%b0)+b0)%b0):'')+' = '+nf(n)+' EA'):(nf(n)+' EA');
-  if(!confirm(it.pn+'\n\n전산 '+bx(cur)+'\n실사 '+bx(want)+'\n'
-      +'차이 '+(df>0?'+':'')+nf(df)+' EA'+(b0?' ('+(df>0?'+':'')+(df/b0).toFixed(1)+'박스)':'')
-      +' 를 재고조정 전표로 등록합니다.\n\n계속할까요?')){
+  const d=dd||fxDate(), isToday=d===today();
+  if(!isToday && it.bd && d<=it.bd){
+    alert(it.pn+'\n\n조정일자 '+d+' 가 기초일자('+it.bd+')와 같거나 빠릅니다.\n기초일자 이후 날짜로 지정하세요.');
     rCfg(); return;
   }
-  const d=today();
-  if(baseDateGuard(it,d)) pushItems(true);               /* 기초일자가 오늘이면 어제로 — 오늘 조정전표가 집계되게 */
+  const want=Math.round(+v||0);
+  /* 기초일자가 오늘이면 아래에서 어제로 당긴다 → 당겨진 기준으로 차이를 계산해야
+     오늘 다른 전표(생산입고 등)가 다시 잡혀 입력값과 어긋나는 일이 없다 */
+  const bd0=it.bd, needGuard=isToday&&it.bd&&it.bd>=d;
+  if(needGuard) it.bd=dayBefore(d);
+  let cur; try{ cur=stockAt(it,d); } finally { it.bd=bd0; }
+  const df=want-cur;
+  if(!df){ toast(d+' 기준 재고가 이미 '+nf(want)+' EA 입니다'); rCfg(); return; }
+  const b0=+it.bx||0;
+  const bx=(n)=>b0?(Math.floor(n/b0)+'박스'+(((n%b0)+b0)%b0?'+'+nf(((n%b0)+b0)%b0):'')+' = '+nf(n)+' EA'):(nf(n)+' EA');
+  const mc=(typeof mcGet==='function')?mcGet(d.slice(0,7)):null;
+  /* 과거일 조정 뒤에 이미 실사·직접수정 조정이 있으면 그 결과까지 같이 밀린다 */
+  const later=isToday?[]:S.led.filter(r=>r.pn===it.pn&&r.d>d&&String(r.k||'').indexOf('재고조정')===0
+      &&!isCloseRow(r));
+  if(!confirm(it.pn+'\n\n조정일자 '+d+(isToday?' (오늘)':'')+'\n'
+      +'전산 '+bx(cur)+(isToday?'':' ('+d+' 기준)')+'\n실사 '+bx(want)+'\n'
+      +'차이 '+(df>0?'+':'')+nf(df)+' EA'+(b0?' ('+(df>0?'+':'')+(df/b0).toFixed(1)+'박스)':'')
+      +' 를 재고조정 전표로 등록합니다.'
+      +(mc?'\n\n⚠ '+d.slice(0,7)+' 은(는) 월마감 확정된 달입니다. 확정 재고조사서에는 반영되지 않습니다.':'')
+      +(later.length?'\n\n⚠ '+d+' 이후에 재고조정 '+later.length+'건이 이미 있습니다 (마지막 '+later.map(r=>r.d).sort().pop()+').\n'
+        +'  이 조정을 넣으면 현재고가 '+(df>0?'+':'')+nf(df)+' EA 만큼 함께 바뀝니다.\n'
+        +'  나중 실사 결과를 유지하려면 [취소] 후 조정일자를 그 이후로 지정하세요.':'')
+      +'\n\n계속할까요?')){
+    rCfg(); return;
+  }
+  if(isToday && baseDateGuard(it,d)) pushItems(true);               /* 기초일자가 오늘이면 어제로 — 오늘 조정전표가 집계되게 */
   /* src 를 미리 붙이지 않는다 — pushManual 이 src 없는 전표를 올리면서 키를 부여한다 */
   /* 박스 단위 품목은 박스 수도 함께 남긴다 — SKF씰은 박스로 세고 박스로 확인한다 */
   const bxs=(n)=>{ const b=+it.bx||0; if(!b) return nf(n)+' EA';
     const q=Math.floor(n/b), r=((n%b)+b)%b; return q+'박스'+(r?'+'+nf(r):'')+' ('+nf(n)+' EA)'; };
   const rec={ id:S.seq++, d:d, pn:it.pn, k:(df>0?'재고조정(+)':'재고조정(-)'),
     q:Math.abs(df), p:'', lot:'',
-    n:'재고 직접수정 · 전산 '+bxs(cur)+' → 실사 '+bxs(want),
+    n:'재고 직접수정 · '+(isToday?'':d+' 실사 · ')+'전산 '+bxs(cur)+' → 실사 '+bxs(want),
     by:S.user||'' };
   S.led.push(rec);
   save(); render();
-  toast(it.pn+' 재고를 '+nf(want)+' EA 로 맞췄습니다 ('+(df>0?'+':'')+nf(df)+')');
+  toast(it.pn+' '+d+' 재고를 '+nf(want)+' EA 로 맞췄습니다 ('+(df>0?'+':'')+nf(df)+')');
   try{ await pushManual(); }catch(e){ console.warn('전표 공유:',e.message); }
 }
 
@@ -13416,6 +13473,7 @@ function render(){
 }
 function init(){
   ym=ym||today().slice(0,7);
+  try{ fxSync(); }catch(e){}
   $('whSel').value=WH;$('ym').value=ym;$('i1').textContent=ym;
   $('cfgEx').value=S.excl||'';$('i2').textContent=S.user||'-';
   $('ioF').value=mStart();$('ioT').value=mEnd();
