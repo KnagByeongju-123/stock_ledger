@@ -13406,17 +13406,27 @@ async function fixStock(it, val, dd){
     rCfg(); return;
   }
   const want=Math.round(+v||0);
-  const cur=stockAt(it,d);
+  /* 기초일자가 오늘이면 아래에서 어제로 당긴다 → 당겨진 기준으로 차이를 계산해야
+     오늘 다른 전표(생산입고 등)가 다시 잡혀 입력값과 어긋나는 일이 없다 */
+  const bd0=it.bd, needGuard=isToday&&it.bd&&it.bd>=d;
+  if(needGuard) it.bd=dayBefore(d);
+  let cur; try{ cur=stockAt(it,d); } finally { it.bd=bd0; }
   const df=want-cur;
   if(!df){ toast(d+' 기준 재고가 이미 '+nf(want)+' EA 입니다'); rCfg(); return; }
   const b0=+it.bx||0;
   const bx=(n)=>b0?(Math.floor(n/b0)+'박스'+(((n%b0)+b0)%b0?'+'+nf(((n%b0)+b0)%b0):'')+' = '+nf(n)+' EA'):(nf(n)+' EA');
   const mc=(typeof mcGet==='function')?mcGet(d.slice(0,7)):null;
+  /* 과거일 조정 뒤에 이미 실사·직접수정 조정이 있으면 그 결과까지 같이 밀린다 */
+  const later=isToday?[]:S.led.filter(r=>r.pn===it.pn&&r.d>d&&String(r.k||'').indexOf('재고조정')===0
+      &&!isCloseRow(r));
   if(!confirm(it.pn+'\n\n조정일자 '+d+(isToday?' (오늘)':'')+'\n'
       +'전산 '+bx(cur)+(isToday?'':' ('+d+' 기준)')+'\n실사 '+bx(want)+'\n'
       +'차이 '+(df>0?'+':'')+nf(df)+' EA'+(b0?' ('+(df>0?'+':'')+(df/b0).toFixed(1)+'박스)':'')
       +' 를 재고조정 전표로 등록합니다.'
       +(mc?'\n\n⚠ '+d.slice(0,7)+' 은(는) 월마감 확정된 달입니다. 확정 재고조사서에는 반영되지 않습니다.':'')
+      +(later.length?'\n\n⚠ '+d+' 이후에 재고조정 '+later.length+'건이 이미 있습니다 (마지막 '+later.map(r=>r.d).sort().pop()+').\n'
+        +'  이 조정을 넣으면 현재고가 '+(df>0?'+':'')+nf(df)+' EA 만큼 함께 바뀝니다.\n'
+        +'  나중 실사 결과를 유지하려면 [취소] 후 조정일자를 그 이후로 지정하세요.':'')
       +'\n\n계속할까요?')){
     rCfg(); return;
   }
