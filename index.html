@@ -1134,6 +1134,15 @@ body.qp-on{overflow:hidden}
 <div class="page on" id="p-sum">
   <button class="m-only" onclick="syncMes(false)" style="width:100%;padding:13px;margin:0 0 10px;border:0;border-radius:10px;background:#1F3A5F;color:#fff;font-size:15px;font-weight:800;box-shadow:0 2px 6px rgba(0,0,0,.15)">🔃 새로고침</button>
   <div class="pt"><h2>재고 현황</h2><span class="sub">품목별 월간 입출고 집계 · 현재고 · 안전재고</span><div class="pa"><button class="btn" onclick="render()">조회</button><button class="btn" onclick="window.print()">인쇄</button><button class="btn" onclick="exportXls()">엑셀</button></div></div>
+  <div class="sum" style="grid-template-columns:repeat(7,1fr);margin:0 auto 12px">
+    <div class="pc-only"><span>관리품목</span><b id="q1">166</b><em>품목</em></div>
+    <div class="g pc-only"><span>당월 입고</span><b id="q2">40,662,072</b><em>EA</em></div>
+    <div class="d pc-only"><span>당월 납품(출하)</span><b id="q3">1,166,900</b><em>EA</em></div>
+    <div class="d pc-only"><span>오늘 출하</span><b id="q7">0</b><em>EA</em></div>
+    <div class="pc-only"><span>현재고</span><b id="q4">21,727,858</b><em>EA</em></div>
+    <div class="d"><span>안전재고 미달</span><b id="q5">37</b><em>품목</em></div>
+    <div class="w pc-only"><span>장기 미불출</span><b id="q6">5</b><em>품목</em></div>
+  </div>
   <div class="fbar">
     <label>품번</label>
     <input id="fq" placeholder="품번 / 품명 검색" class="kbi" inputmode="none" autocomplete="off" style="width:150px">
@@ -2754,15 +2763,6 @@ body.qp-on{overflow:hidden}
      <td style="font-weight:800">2,335,471</td><td colspan="3"></td><td>679,900</td>
      <td colspan="4"></td></tr></tfoot></table></div></div>
     <div class="hint noprint">· 현재고 = 전월이월 + 당월입고 − 당월출고 · 과부족 = 현재고 − 안전재고 · 재고일수 = 현재고 ÷ 일평균출고 · 회전율 = 당월출고 ÷ 평균재고<br>· 품번을 클릭하면 해당 품목의 입출고 이력로 이동합니다.</div>
-  </div>
-  <div class="sum" style="grid-template-columns:repeat(7,1fr);margin:12px auto 0">
-    <div class="pc-only"><span>관리품목</span><b id="q1">166</b><em>품목</em></div>
-    <div class="g pc-only"><span>당월 입고</span><b id="q2">40,662,072</b><em>EA</em></div>
-    <div class="d pc-only"><span>당월 납품(출하)</span><b id="q3">1,166,900</b><em>EA</em></div>
-    <div class="d pc-only"><span>오늘 출하</span><b id="q7">0</b><em>EA</em></div>
-    <div class="pc-only"><span>현재고</span><b id="q4">21,727,858</b><em>EA</em></div>
-    <div class="d"><span>안전재고 미달</span><b id="q5">37</b><em>품목</em></div>
-    <div class="w pc-only"><span>장기 미불출</span><b id="q6">5</b><em>품목</em></div>
   </div>
 </div>
 
