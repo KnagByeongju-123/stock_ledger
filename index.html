@@ -367,6 +367,13 @@ body{margin:0;background:var(--bg);font-family:var(--sans);color:var(--ink);font
   background:linear-gradient(#f3f6f8,#dce3e9);border-bottom:1px solid #91a0af;font-size:11px;font-weight:800;color:#4a5968}
 .sum b{font-size:16px;font-weight:800;text-align:right;padding-left:8px;color:#25313d;letter-spacing:0}
 .sum em{font-style:normal;font-size:10.5px;color:#697785;font-weight:700;padding:0 8px 0 4px}
+.cuship{display:flex;flex-wrap:wrap;align-items:center;gap:6px;max-width:1400px;margin:-4px auto 12px;font-size:12px}
+.cuship:empty{display:none}
+.cuship .ct{font-weight:800;color:#5C6B7A;margin-right:2px}
+.cuship button{border:1px solid #D5DCE3;background:#fff;border-radius:14px;padding:4px 10px;font-size:12px;cursor:pointer;font-family:var(--sans);color:#25313d}
+.cuship button b{color:var(--dg);font-weight:800;margin-left:4px}
+.cuship button i{font-style:normal;color:#8A96A3;margin-left:3px;font-size:11px}
+.cuship button.on{border-color:#1F3A5F;background:#EAF1F8}
 .sum div.d b{color:var(--dg)}.sum div.g b{color:#2f6e49}.sum div.w b{color:var(--wn)}
 
 .istep{display:flex;gap:9px;margin-bottom:13px}
@@ -1080,7 +1087,7 @@ body.qp-on{overflow:hidden}
 
 <div class="tb">
   <button class="ham" onclick="tglDrawer()" aria-label="메뉴"><i></i><i></i><i></i></button>
-  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.9 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
+  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.10 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
   <span id="tbPage" style="margin-left:auto">🔗 LOT 추적</span>
   <div id="tbTools">
     <div id="dHd"><div>재고 입출고 현황<small>TAEJIN DITECH · MENU</small></div><span onclick="tglDrawer(0)">✕</span></div>
@@ -1143,6 +1150,7 @@ body.qp-on{overflow:hidden}
     <div class="d"><span>안전재고 미달</span><b id="q5">37</b><em>품목</em></div>
     <div class="w pc-only"><span>장기 미불출</span><b id="q6">5</b><em>품목</em></div>
   </div>
+  <div id="cuShip" class="cuship" title="고객사를 누르면 그 고객사 품목만 표시합니다"></div>
   <div class="fbar">
     <label>품번</label>
     <input id="fq" placeholder="품번 / 품명 검색" class="kbi" inputmode="none" autocomplete="off" style="width:150px">
@@ -6710,6 +6718,12 @@ function fillSumCu(){
   if(cur&&(cur===''||keys.includes(cur))) sel.value=cur;
   else if(S.sumCu&&keys.includes(S.sumCu)) sel.value=S.sumCu;
 }
+document.addEventListener('click',e=>{
+  const b=e.target.closest&&e.target.closest('#cuShip button'); if(!b)return;
+  const sel=$('sCu'); if(!sel)return;
+  const c=b.dataset.cu; sel.value=(sel.value===c)?'':c;   /* 다시 누르면 전체 */
+  sel.dispatchEvent(new Event('change',{bubbles:true}));
+});
 function rSum(){
   if(sumEdit||fixOpen()) return;   /* 입력 중이거나 카드 박스 칸이 펼쳐져 있으면 다시 그리지 않는다 */
   fillSumCu();
@@ -6734,6 +6748,13 @@ function rSum(){
     .reduce((a2,r)=>a2+r.q,0);
   anim('q1',rows.length);anim('q2',T.i);anim('q3',T.u);anim('q4',T.c);anim('q5',nShort);anim('q6',nDead);
   anim('q7',tShip);
+  /* 당월 납품(출하) 고객사별 — 위 합계와 같은 품목 범위에서 나눈다 */
+  try{
+    const by={}; rows.forEach(({it,v})=>{ if(!v.sq)return; const c=(it.cu||'').trim()||'(미지정)'; by[c]=(by[c]||0)+v.sq; });
+    const ks=Object.keys(by).sort((a,b)=>by[b]-by[a]);
+    $('cuShip').innerHTML=ks.length?'<span class="ct">고객사별 당월출하</span>'
+      +ks.map(c=>'<button type="button" data-cu="'+esc(c)+'"'+(scu===c?' class="on"':'')+'>'+esc(c)+'<b>'+nf(by[c])+'</b><i>'+(T.u?(by[c]/T.u*100).toFixed(1):'0')+'%</i></button>').join(''):'';
+  }catch(_){}
   try{syncInfo();}catch(_){}
 
   /* 오늘 재고를 맞춘 품목 수 — 실사 진행 상황을 여기서 바로 본다 */
