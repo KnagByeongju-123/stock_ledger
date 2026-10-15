@@ -1096,7 +1096,7 @@ body.qp-on{overflow:hidden}
 
 <div class="tb">
   <button class="ham" onclick="tglDrawer()" aria-label="메뉴"><i></i><i></i><i></i></button>
-  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.14 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
+  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.15 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
   <span id="tbPage" style="margin-left:auto">🔗 LOT 추적</span>
   <div id="tbTools">
     <div id="dHd"><div>재고 입출고 현황<small>TAEJIN DITECH · MENU</small></div><span onclick="tglDrawer(0)">✕</span></div>
@@ -6595,7 +6595,24 @@ function load(){
     S.alv=ALV; save();
   }
 }
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){toast('저장 공간 부족');}};
+/* ═══ 기기 저장 ═══
+   브라우저 저장공간(약 5MB, 같은 주소의 다른 앱과 공유)이 차면 통째로 저장이 실패해
+   '저장 공간 부족' 만 뜨고 재고조정 등 방금 한 작업이 이 기기에 남지 않았다.
+   → 다시 받을 수 있는 자료부터 빼고 단계적으로 저장한다.
+     1단계: 전부  2단계: MES 실사용 이력·진단(새로고침 때 다시 받음)
+     3단계: 서버에 이미 있는 제품 전표(src 있는 것) — 접속 때 서버에서 다시 받는다 */
+const SAVE_DROP1=['ru','eqRaw','iqcDiag','diag','lotDate'];
+let saveLvl=0;
+const save=()=>{
+  const tryPut=o=>{ try{ localStorage.setItem(KEY,JSON.stringify(o)); return true; }catch(e){ return false; } };
+  if(tryPut(S)){ saveLvl=0; return; }
+  try{ localStorage.removeItem(KEY); }catch(e){}            /* 옛 큰 값을 먼저 지워 자리를 만든다 */
+  const o1=Object.assign({},S); SAVE_DROP1.forEach(k=>delete o1[k]);
+  if(tryPut(o1)){ if(saveLvl<1)console.warn('저장공간 부족 — 다시 받을 수 있는 이력은 빼고 저장'); saveLvl=1; return; }
+  const o2=Object.assign({},o1,{led:(S.led||[]).filter(r=>!r.src||(String(r.src).indexOf('MAN|')===0&&r.md))});
+  if(tryPut(o2)){ if(saveLvl<2)console.warn('저장공간 부족 — 서버 전표는 접속 때 다시 받음'); saveLvl=2; return; }
+  saveLvl=3; toast('저장 공간 부족 — 이 기기에 저장하지 못했습니다 (서버에는 올라갑니다)');
+};
 
 /* ═══════ 입출고 계산 ═══════ */
 const mStart=()=>ym+'-01';
