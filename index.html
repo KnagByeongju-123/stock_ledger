@@ -1096,7 +1096,7 @@ body.qp-on{overflow:hidden}
 
 <div class="tb">
   <button class="ham" onclick="tglDrawer()" aria-label="메뉴"><i></i><i></i><i></i></button>
-  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.13 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
+  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.14 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
   <span id="tbPage" style="margin-left:auto">🔗 LOT 추적</span>
   <div id="tbTools">
     <div id="dHd"><div>재고 입출고 현황<small>TAEJIN DITECH · MENU</small></div><span onclick="tglDrawer(0)">✕</span></div>
@@ -9292,6 +9292,16 @@ function rRaw(){
     if(last&&last<a)msgs.push('ℹ <b>가장 최근 소재 입고일이 '+last+'</b> 입니다 — 이번 달('+ym+') 입고분이 '
       +'수입검사 앱에 아직 등록되지 않았습니다.');
   }
+  /* MES 소재 연동이 멈췄으면 맨 앞에 알린다 */
+  {
+    const lastU=(S.ru||[]).reduce((m2,x)=>x.d>m2?x.d:m2,'');
+    const lastR=S.coils.filter(c=>c.src&&c.src.indexOf('MESRCV|')===0).reduce((m2,c)=>String(c.d||'')>m2?c.d:m2,'');
+    const last=lastU>lastR?lastU:lastR;
+    const gapD=last?Math.floor((new Date(today())-new Date(last))/864e5):null;
+    if(S.mesMode&&gapD!=null&&gapD>2)
+      msgs.unshift('⛔ <b>MES 소재 자료가 '+last+' 까지만 있습니다 ('+gapD+'일 전)</b> — 그 뒤 소재 입고·투입이 재고에 반영되지 않았습니다. '
+        +'회사 PC 의 <b>mes_raw_sync.py</b>(MES소재동기화)가 멈췄는지 확인하고, 다시 돌린 뒤 <b>[🔄 새로고침]</b>을 누르세요.');
+  }
   if(msgs.length){
     W.style.display='block';
     W.classList.toggle('open',!!S.warnOpen);
@@ -10124,6 +10134,28 @@ document.addEventListener('click',e=>{
   if(p2&&p2.classList.contains('on')&&!e.target.closest('.tools-wrap'))p2.classList.remove('on');
 });
 let refBusy=false;
+/* 오래 걸리는 연동 한 단계가 [새로고침] 전체를 붙잡지 않게 시간 제한을 둔다 */
+function withTimeout(p,ms,nm){
+  return Promise.race([p,new Promise((_,rj)=>setTimeout(()=>rj(new Error((nm||'연동')+' 시간 초과 ('+Math.round(ms/1000)+'초)')),ms))]);
+}
+/* ═══ MES 소재 입고·투입 자동 반영 ═══
+   원소재 [새로고침] 을 누르지 않아도 제품 동기화(자동·새로고침) 뒤 30분에 한 번 MES 소재 자료를 받아
+   코일·차감을 갱신하고 공유 저장한다. (9/3 이후 입고가 한 달 넘게 안 보이던 문제) */
+async function autoRawMes(force){
+  if(!force&&Date.now()-(+S.rawMesAt||0)<30*60e3) return;
+  if(rawMesBusy||(typeof refBusy!=='undefined'&&refBusy)) return;
+  try{
+    try{ await pullRaw(true); }catch(e){}
+    const rm=await withTimeout(syncRawMes(true),120000,'MES 소재 연동');
+    if(!rm||rm.err) return;
+    S.rawMesAt=Date.now();
+    try{ autoBom(false); }catch(e){ console.warn('autoBom:',e.message); }
+    save();
+    await pushRaw(true);
+    if(tab==='raw') rRaw();
+    if(rm.rcvAdd) console.log('MES 소재 자동 반영 — 새 코일 '+rm.rcvAdd+'본');
+  }catch(e){ console.warn('MES 소재 자동 반영:',e.message); }
+}
 async function refreshAll(){
   if(refBusy)return; refBusy=true;
   const btn=$('btnRefresh'), info=$('refreshInfo');
@@ -10174,20 +10206,11 @@ async function refreshAll(){
       L.push('· 다른 기기 자료 반영 — 코일 '+gp.c+'본 / 소요량 '+gp.b+'종 / 전표 '+gp.m+'건'
         +(gp.d?' · 다른 기기에서 지운 코일 '+gp.d+'본 정리':''));
 
-    if(info)info.textContent='수입검사 자료를 가져오는 중…';
-    let a=null; try{ a=await syncIqc(true); }catch(e){ L.push('· ⚠ 수입검사 연동 오류: '+e.message); }
-    if(a)L.push('· 수입검사에서 코일 '+(a.add||0)+'본 새로 등록'
-      +((a.upd)?', '+a.upd+'본 정보 갱신':'')+((a.hold)?' (검사 안 끝난 '+a.hold+'본은 사용 보류)':''));
-    else L.push('· 수입검사 자료를 가져오지 못했습니다 (인터넷·서버 확인)');
-
-    if(info)info.textContent='프레스 설비 정보를 가져오는 중…';
-    let b=null; try{ b=await syncEq(true); }catch(e){ L.push('· ⚠ 설비 연동 오류: '+e.message); }
-    if(b)L.push('· 프레스 설비 '+b.eq+'대 확인 · 제품 소요량 '+(b.bAdd||0)+'건 새로 등록'
-      +((b.bUpd)?', '+b.bUpd+'건 갱신':''));
-    else L.push('· 설비 정보를 가져오지 못했습니다');
-
     if(info)info.textContent='MES 소재 사용이력을 가져오는 중…';
-    const rm=await syncRawMes(true);
+    /* MES 소재(입고·투입)를 수입검사·설비보다 먼저 — 앞 단계가 느리거나 실패해도 입고는 들어오게 */
+    for(let w=0;w<30&&rawMesBusy;w++) await new Promise(r2=>setTimeout(r2,1000));   /* 자동 연동과 겹치면 기다린다 */
+    let rm=null; try{ rm=await withTimeout(syncRawMes(true),120000,'MES 소재 연동'); }catch(e){ rm={err:e.message}; }
+    if(rm&&!rm.err) S.rawMesAt=Date.now();
     if(rm&&!rm.err){
       const last=(S.ru||[]).reduce((m2,x)=>x.d>m2?x.d:m2,'');
       const stale=last&&((new Date(today())-new Date(last))/864e5>2);
@@ -10196,7 +10219,18 @@ async function refreshAll(){
         +' · 실사용 이력 '+nf(rm.use)+'건 / '+kg(rm.useKg)+' kg'+(last?' (최신 '+last+')':''));
       if(!rm.use||stale)L.push('   ⚠ MES 소재 이력이 '+(last?last+' 까지만':'없습니다')+' — PC 에서 MES소재동기화.bat 을 한 번 돌리세요. 그 뒤 입고·투입은 아직 반영되지 않았습니다.');
     }
-    else if(rm)L.push('· ⚠ MES 소재 이력을 가져오지 못했습니다 ('+rm.err+') — 원단위로 추정 차감');
+    else L.push('· ⚠ MES 소재 이력을 가져오지 못했습니다 ('+((rm&&rm.err)||'응답 없음')+') — 원단위로 추정 차감');
+    if(info)info.textContent='수입검사 자료를 가져오는 중…';
+    let a=null; try{ a=await withTimeout(syncIqc(true),90000,'수입검사 연동'); }catch(e){ L.push('· ⚠ 수입검사 연동 오류: '+e.message); }
+    if(a)L.push('· 수입검사에서 코일 '+(a.add||0)+'본 새로 등록'
+      +((a.upd)?', '+a.upd+'본 정보 갱신':'')+((a.hold)?' (검사 안 끝난 '+a.hold+'본은 사용 보류)':''));
+    else L.push('· 수입검사 자료를 가져오지 못했습니다 (인터넷·서버 확인)');
+
+    if(info)info.textContent='프레스 설비 정보를 가져오는 중…';
+    let b=null; try{ b=await withTimeout(syncEq(true),90000,'설비 연동'); }catch(e){ L.push('· ⚠ 설비 연동 오류: '+e.message); }
+    if(b)L.push('· 프레스 설비 '+b.eq+'대 확인 · 제품 소요량 '+(b.bAdd||0)+'건 새로 등록'
+      +((b.bUpd)?', '+b.bUpd+'건 갱신':''));
+    else L.push('· 설비 정보를 가져오지 못했습니다');
   }catch(e){ L.push('· 오류: '+e.message); }
   /* 사용량 차감은 위 단계가 실패해도 반드시 실행한다 */
   try{
@@ -12272,6 +12306,7 @@ async function syncMes(silent){
     else if(add||upd||del)toast('자동전표 '+(add+upd)+'건 반영'+(del?' · '+del+'건 정리':''));
     if(btn)btn.disabled=false; mesBusy=false;
     setTimeout(()=>mcAuto().catch(()=>{}),0);     /* 지정 마감월(9월 → 10/2) 자동 마감확정 */
+    setTimeout(()=>autoRawMes().catch(()=>{}),1500);   /* MES 소재 입고·투입 (30분에 한 번) */
     return {ok:true,add,upd,del,rows:rows.length};
   }catch(e){
     mesStat('MES 연결 안됨','#FF9E9E');
