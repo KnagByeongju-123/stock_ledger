@@ -1096,7 +1096,7 @@ body.qp-on{overflow:hidden}
 
 <div class="tb">
   <button class="ham" onclick="tglDrawer()" aria-label="메뉴"><i></i><i></i><i></i></button>
-  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.12 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
+  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.13 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
   <span id="tbPage" style="margin-left:auto">🔗 LOT 추적</span>
   <div id="tbTools">
     <div id="dHd"><div>재고 입출고 현황<small>TAEJIN DITECH · MENU</small></div><span onclick="tglDrawer(0)">✕</span></div>
@@ -10731,7 +10731,13 @@ async function syncRawMes(silent){
       });
       /* MES 에 없는 자동연동 코일(시트·수입검사·설비 보완)은 정리 — 직접 등록·전표 달린 것은 유지 */
       /* MESRCV 도 포함 — MES 에서 입고취소·반출(IO_FLAG=2)된 건은 코일도 없어져야 한다 */
-      const rm=S.coils.filter(c=>c.src&&/^(MESRCV|MESSTK|IQC2|MESLOT)\|/.test(c.src)&&!keep.has(c.src)&&!S.mled.some(m=>m.cid===c.id&&!m.auto));
+      /* MES 가 슬릿 자식 코일(원코일번호-1, -2 …)로 입고한 원코일은 수기전표가 있어도 지운다
+         (수입검사로 먼저 들어온 CPG7580D 같은 원코일이 MES 슬릿분과 이중으로 잡히던 문제) */
+      const mesBase=new Set(S.coils.filter(c=>c.src&&c.src.indexOf('MESRCV|')===0&&keep.has(c.src))
+        .map(c=>String(c.cno||'').split('#')[0].replace(/-\d+$/,'')));
+      const slitDone=c=>!/^MESRCV\|/.test(c.src)&&mesBase.has(String(c.cno||'').split('#')[0]);
+      const rm=S.coils.filter(c=>c.src&&/^(MESRCV|MESSTK|IQC2|MESLOT)\|/.test(c.src)&&!keep.has(c.src)
+        &&(slitDone(c)||!S.mled.some(m=>m.cid===c.id&&!m.auto)));
       if(rm.length){ const ids=new Set(rm.map(c=>c.id)); markDel(rm.map(c=>c.cno)); S.mled=S.mled.filter(m=>!ids.has(m.cid)); S.coils=S.coils.filter(c=>!ids.has(c.id)); out.cleared=rm.length; }
       S.coils.sort((a,b)=>String(a.d||'').localeCompare(String(b.d||''))||a.id-b.id);
       rawDirty=true;
