@@ -1096,7 +1096,7 @@ body.qp-on{overflow:hidden}
 
 <div class="tb">
   <button class="ham" onclick="tglDrawer()" aria-label="메뉴"><i></i><i></i><i></i></button>
-  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.11 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
+  <div class="ttl">재고 입출고 현황<small>TAEJIN DITECH · STOCK · <b style="color:#8FD4A8">v17.12 · 원소재 v11.19</b><span id="tbNow"> · 전체 · 2026-09</span></small></div>
   <span id="tbPage" style="margin-left:auto">🔗 LOT 추적</span>
   <div id="tbTools">
     <div id="dHd"><div>재고 입출고 현황<small>TAEJIN DITECH · MENU</small></div><span onclick="tglDrawer(0)">✕</span></div>
@@ -9514,15 +9514,9 @@ function rRaw(){
     const T={n:0,inKg:0,remN:0,remKg:0,outN:0,mIn:0,mOut:0,holdN:0,mountN:0};
     A.forEach(o=>{T.n+=o.n;T.inKg+=o.inKg;T.remN+=o.remN;T.remKg+=o.remKg;T.outN+=o.outN;
       T.mIn+=o.mIn;T.mOut+=o.mOut;T.holdN+=o.holdN;T.mountN+=o.mountN;});
-    $('gt-raw').innerHTML='공급업체별 코일 입출고 · <b>'+A.length+'</b>개사 · 보유 <b>'+T.remN+'</b>코일 / '+kg(T.remKg)+' kg · 기준월 '+ym;
+    $('gt-raw').innerHTML='공급업체별 현재 재고 · <b>'+A.length+'</b>개사 · 보유 <b>'+T.remN+'</b>코일 / '+kg(T.remKg)+' kg · 기준월 '+ym;
     $('rawHint').innerHTML='· <b>현재 재고</b>(초록): 지금 남아 있는 코일. <b>사용중</b>=일부 투입, <b>미개봉</b>=투입 이력 없음, <b>보류</b>=검사대기·불합격으로 사용 불가.<br>'
-      +'· <b>이번 달</b>(파랑): 기준월 입고·투입. <b>누적 이력</b>(회색): 기초일자 이후 전체 입고·소진(잔량 0.5kg 이하) 기록입니다.<br>'
       +'· 파란 업체 행을 누르면 규격이 접히고 펼쳐집니다. 재고가 없는 규격은 기본으로 숨깁니다.';
-    const bar=p2v=>{const c2=p2v>=90?'#B3261E':(p2v>=70?'#9A6400':'#2f6e49');
-      return `<div style="display:flex;align-items:center;gap:5px">
-        <div style="flex:1;height:9px;background:#E3E7EB;border-radius:5px;overflow:hidden;min-width:52px">
-          <div style="width:${Math.min(100,p2v).toFixed(0)}%;height:100%;background:${c2}"></div></div>
-        <span style="font-size:10px;color:${c2};font-weight:700;width:30px;text-align:right">${p2v.toFixed(0)}%</span></div>`;};
     if(MC){
       $('tRaw').innerHTML='<tbody>'+(A.length?A.map(o=>mcSup(o)).join('')
         :'<tr><td style="padding:24px;text-align:center;color:#93A0AB">등록된 코일이 없습니다.</td></tr>')+'</tbody>';
@@ -9533,7 +9527,6 @@ function rRaw(){
     const showAll=!!S.supAll, fold=S.supFold||{};
     const dash='<span style="color:#C3CBD3">-</span>';
     const v=(n,cls)=>n?`<span class="${cls||''}">${n}</span>`:dash;
-    const H='style="background:#F6F8FA;color:#7A8794"';                 /* 누적 이력 칸 */
     $('gt-raw').innerHTML+=' &nbsp;<button class="btn" style="padding:2px 9px;font-size:11px" onclick="S.supAll=!S.supAll;save();rRaw()">'
       +(showAll?'재고 있는 규격만 보기':'재고 0 규격도 보기')+'</button>'
       +' <button class="btn" style="padding:2px 9px;font-size:11px" onclick="supFoldAll()">'
@@ -9541,15 +9534,10 @@ function rRaw(){
     $('tRaw').innerHTML=`<thead>
       <tr><th rowspan="2" style="min-width:170px">공급업체 / 규격</th>
         <th colspan="6" style="background:#DCEBDF;color:#0B4A2B">현재 재고</th>
-        <th colspan="2" style="background:#E3ECF7;color:#1F3A5F">이번 달 (${ym})</th>
-        <th colspan="4" style="background:#EEF0F2;color:#6B7884">누적 이력 (기초일자 이후)</th>
         <th rowspan="2">최근<br>입고일</th></tr>
       <tr><th style="background:#EAF4EC">코일</th><th style="background:#EAF4EC">재고(kg)</th>
         <th style="background:#EAF4EC">사용중</th><th style="background:#EAF4EC">미개봉</th>
-        <th style="background:#EAF4EC">보류</th><th style="background:#EAF4EC">설비장착</th>
-        <th style="background:#EEF3FA">입고<br>코일 / kg</th><th style="background:#EEF3FA">투입(kg)</th>
-        <th style="background:#F3F4F6">입고<br>코일</th><th style="background:#F3F4F6">입고(kg)</th>
-        <th style="background:#F3F4F6">소진<br>코일</th><th style="background:#F3F4F6">소진율</th></tr></thead><tbody>`
+        <th style="background:#EAF4EC">보류</th><th style="background:#EAF4EC">설비장착</th></tr></thead><tbody>`
      +(A.length?A.map(o=>{
         const fd=!!fold[o.nm];
         const specs=o.specs.filter(sp=>showAll||sp.remKg>0.5);
@@ -9558,31 +9546,21 @@ function rRaw(){
          <td class="l"><span class="arw">${fd?'▶':'▼'}</span> ${esc(o.nm)} <em>${o.specs.length}규격</em></td>
          <td class="big">${o.remN}</td><td class="big">${kg(o.remKg)}</td>
          <td>${v(o.useN)}</td><td>${v(o.waitN)}</td><td>${v(o.holdN,'wn')}</td><td>${v(o.mountN)}</td>
-         <td>${o.mInN?`<span class="pos">${o.mInN} / ${kg(o.mIn)}</span>`:dash}</td>
-         <td>${o.mOut?`<span class="neg">${kg(o.mOut)}</span>`:dash}</td>
-         <td ${H}>${o.n}</td><td ${H}>${kg(o.inKg)}</td><td ${H}>${o.outN||'-'}</td>
-         <td ${H} style="padding:0 6px;background:#F6F8FA">${bar(o.pct)}</td>
          <td class="c">${esc(o.last||'-')}</td></tr>`;
         if(fd) return h;
         specs.forEach(sp=>{
-          const pc=sp.inKg>0?Math.max(0,sp.inKg-sp.remKg)/sp.inKg*100:0, z=sp.remKg<=0.5;
+          const z=sp.remKg<=0.5;
           h+=`<tr class="sups${z?' zero':''}">
            <td class="l">${esc(specNm(sp))}</td>
            <td style="font-weight:700">${sp.remN||dash}</td><td style="font-weight:700">${z?dash:kg(sp.remKg)}</td>
            <td>${v(sp.useN)}</td><td>${v(sp.waitN)}</td><td>${v(sp.holdN,'wn')}</td><td>${v(sp.mountN)}</td>
-           <td>${sp.mInN?`<span class="pos">${sp.mInN} / ${kg(sp.mIn)}</span>`:dash}</td>
-           <td>${sp.mOut?`<span class="neg">${kg(sp.mOut)}</span>`:dash}</td>
-           <td ${H}>${sp.n}</td><td ${H}>${kg(sp.inKg)}</td><td ${H}>${sp.outN||'-'}</td>
-           <td ${H} style="padding:0 6px;background:#F6F8FA">${bar(pc)}</td>
            <td class="c">${esc(sp.last||'-')}</td></tr>`;
         });
-        if(hid) h+=`<tr class="sups more"><td class="l" colspan="14">재고 0 규격 ${hid}개 숨김 — 위 [재고 0 규격도 보기]</td></tr>`;
+        if(hid) h+=`<tr class="sups more"><td class="l" colspan="8">재고 0 규격 ${hid}개 숨김 — 위 [재고 0 규격도 보기]</td></tr>`;
         return h;
-      }).join(''):`<tr><td colspan="14" class="c" style="padding:30px;color:#93A0AB">등록된 코일이 없습니다.</td></tr>`)
+      }).join(''):`<tr><td colspan="8" class="c" style="padding:30px;color:#93A0AB">등록된 코일이 없습니다.</td></tr>`)
      +`</tbody><tfoot><tr><td class="c">합　계 (${A.length}개사)</td>
-       <td>${T.remN}</td><td>${kg(T.remKg)}</td><td colspan="2"></td><td>${T.holdN||''}</td><td>${T.mountN||''}</td>
-       <td>${kg(T.mIn)}</td><td>${kg(T.mOut)}</td>
-       <td>${T.n}</td><td>${kg(T.inKg)}</td><td>${T.outN}</td><td></td><td></td></tr></tfoot>`;
+       <td>${T.remN}</td><td>${kg(T.remKg)}</td><td colspan="2"></td><td>${T.holdN||''}</td><td>${T.mountN||''}</td><td></td></tr></tfoot>`;
   }
 
   else if(RV==='eq'){
